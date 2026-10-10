@@ -1,0 +1,24 @@
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+.npm-cache/
+.verification/
+*.tsbuildinfo
+.env*
+!.env.example
+
+# Credentials and local tooling
+.vercel/
+.ssh/
+*.pem
+*.key
+*.p12
+*.pfx
+.npmrc
+.netrc
+credentials*.json
+service-account*.json
+*.log
