@@ -5,6 +5,7 @@ import { parseAmount, validateAmount, formatMoney } from "../src/lib/money.ts";
 import { getFundraising } from "../src/lib/fundraising.ts";
 import { createContribution, approvedCheckoutUrl } from "../src/lib/payment.ts";
 import { copyPixCode } from "../src/lib/clipboard.ts";
+import { validatePixPayload } from "../src/lib/pix-payload.ts";
 
 test("valores sugeridos e limites são válidos", () => {
   for (const amount of [...campaign.contribution.suggestedCents, 3000, 100000, 3015]) {
@@ -47,7 +48,18 @@ test("arrecadação informada calcula porcentagem e saldo em centavos", () => {
   assert.match(formatMoney(result.raisedCents), /47\.683,29/);
   assert.match(formatMoney(result.remainingCents), /81\.316,71/);
   assert.equal(campaign.pix.key, "6384186@vakinha.com.br");
-  assert.equal(campaign.pix.enabled, false);
+});
+
+test("campanha autorizada gera código para a chave informada sem alterar arrecadação", () => {
+  const raised = campaign.fundraising.confirmed.raisedCents;
+  for (const cents of [...campaign.contribution.suggestedCents, 3055, 100000]) {
+    const result = createContribution(campaign, cents);
+    assert.equal(result.status, "pix");
+    assert.equal(result.beneficiary, "VAKINHA");
+    assert.equal(validatePixPayload(result.payload, cents, "6384186@vakinha.com.br"), true);
+    assert.equal("paid" in result, false);
+  }
+  assert.equal(campaign.fundraising.confirmed.raisedCents, raised);
 });
 
 test("progresso confirmado calcula dados reais e limita a barra a 100%", () => {
@@ -64,9 +76,11 @@ test("progresso confirmado calcula dados reais e limita a barra a 100%", () => {
   assert.equal(getFundraising(config).confirmed, false);
 });
 
-test("recebimento é bloqueado por padrão para todos os valores", () => {
+test("desabilitar PIX bloqueia todos os valores sem expor o código", () => {
+  const disabled = structuredClone(campaign);
+  disabled.pix.enabled = false;
   for (const amount of campaign.contribution.suggestedCents) {
-    const result = createContribution(campaign, amount);
+    const result = createContribution(disabled, amount);
     assert.equal(result.status, "unavailable");
     assert.equal("key" in result, false);
     assert.equal("payload" in result, false);
@@ -83,6 +97,7 @@ function approvedConfig() {
     campaignUseAuthorized: true, platformFlowConfirmed: true,
     confirmationReference: "EXCLUSIVAMENTE TESTE LOCAL", beneficiaryName: "BENEFICIARIO DE TESTE",
     officialCampaignUrl: "https://www.vakinha.com.br/6384186",
+    mode: "official-checkout",
   });
   return config;
 }

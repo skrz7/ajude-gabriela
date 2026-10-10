@@ -76,7 +76,7 @@ export function PixModal({ amountCents, onClose }: { amountCents: number; onClos
         <a className="botao-pix" href={result.url} target="_blank" rel="noopener noreferrer">Continuar na Vakinha <ExternalLink size={16} aria-hidden="true" /></a>
       </> : result.status === "pix" ? <>
         <p id="pix-situacao" className="pix-instr">Confira o recebedor e o valor no aplicativo do banco antes de confirmar.</p>
-        <p className="pix-beneficiario">Recebedor confirmado: <strong>{result.beneficiary}</strong></p>
+        <p className="pix-beneficiario">Recebedor informado: <strong>{result.beneficiary}</strong> · Campanha Ajude Gabriela</p>
         <PixCode officialPayload={result.payload} amountCents={amountCents} />
         <p className="pix-explicacao">Gerar ou copiar este código não confirma o pagamento. A contabilização depende da confirmação real da plataforma.</p>
       </> : <>

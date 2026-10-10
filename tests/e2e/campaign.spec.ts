@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { createStaticPixPayload } from "../../src/lib/pix-payload";
+import { createStaticPixPayload, validatePixPayload } from "../../src/lib/pix-payload";
 
 test.beforeEach(async ({ page }) => { await page.goto("/"); });
 
@@ -43,15 +43,18 @@ test("layout cabe no viewport e exibe arrecadação informada e saldo calculado"
   await page.screenshot({ path: `test-results/campanha-${test.info().project.name}.png`, fullPage: true });
 });
 
-test("todos os valores abrem o modal bloqueado com valor selecionado", async ({ page }) => {
+test("todos os valores geram PIX real da campanha com valor selecionado", async ({ page }) => {
   for (const value of [30, 50, 75, 100, 150, 250, 500, 700]) {
     await page.getByRole("button", { name: `Selecionar R$ ${value},00`, exact: true }).click();
     await page.getByRole("button", { name: "Apoiar com este valor" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText(`R$ ${value},00`);
-    await expect(dialog.getByRole("heading", { name: "Contribuições em pausa" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Copiar código Pix" })).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "Copiar código Pix" })).toBeVisible();
+    const code = await dialog.getByRole("textbox", { name: "Código PIX Copia e Cola" }).inputValue();
+    expect(validatePixPayload(code, value * 100, "6384186@vakinha.com.br")).toBe(true);
+    await expect(dialog.getByRole("img", { name: "QR Code PIX da contribuição" })).toBeVisible();
+    await expect(dialog).toContainText("VAKINHA");
     await page.getByRole("button", { name: "Fechar modal PIX" }).click();
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Apoiar com este valor" })).toBeFocused();
@@ -78,7 +81,7 @@ test("campo personalizado aceita centavos e rejeita valores fora dos limites", a
 test("modal fecha pelo fundo, retém foco e restaura rolagem", async ({ page }) => {
   await page.getByRole("button", { name: "Apoiar com este valor" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Contribuições em pausa" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copiar código Pix" })).toBeVisible();
   for (let i = 0; i < 5; i++) {
     await page.keyboard.press("Tab");
     expect(await page.evaluate(() => Boolean(document.activeElement?.closest("dialog")))).toBe(true);
@@ -96,19 +99,23 @@ test("erros de rede têm mensagem e permitem fechar", async ({ page }) => {
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("API bloqueia cobrança e valida valores sem expor a chave", async ({ request }) => {
+test("API valida origem e valor e gera código sem confirmar pagamento", async ({ request }) => {
   const foreign = await request.post("/api/contributions", { headers: { origin: "https://example.invalid" }, data: { amountCents: 5000 } });
   expect(foreign.status()).toBe(403);
   const invalid = await request.post("/api/contributions", { data: { amountCents: 2999 } });
   expect(invalid.status()).toBe(400);
-  const blocked = await request.post("/api/contributions", { data: { amountCents: 5000 } });
-  expect(blocked.status()).toBe(503);
-  expect(await blocked.text()).not.toContain("6384186@");
+  const generated = await request.post("/api/contributions", { data: { amountCents: 5055 } });
+  expect(generated.status()).toBe(200);
+  const payment = await generated.json();
+  expect(payment.status).toBe("pix");
+  expect(payment.beneficiary).toBe("VAKINHA");
+  expect(validatePixPayload(payment.payload, 5055, "6384186@vakinha.com.br")).toBe(true);
+  expect(payment).not.toHaveProperty("paid");
 });
 
 test("página e modal atendem verificações automáticas de acessibilidade", async ({ page }) => {
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole("button", { name: "Apoiar com este valor" }).click();
-  await expect(page.getByRole("heading", { name: "Contribuições em pausa" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copiar código Pix" })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });

@@ -47,7 +47,7 @@ export function ContributionForm({ config }: { config: CampaignConfig["contribut
         {error && <p id="erro-valor" className="erro-formulario" role="alert">{error}</p>}
         <button className="botao-livre-cta" type="submit">Apoiar com este valor<span aria-hidden="true">→</span></button>
       </div>
-    <p className="apoio-status">Contribuições em preparação. O PIX será liberado após a confirmação da responsável.</p></form>
+    <p className="apoio-status">Doação por PIX para a campanha na Vakinha. Confira o recebedor e o valor no aplicativo do banco.</p></form>
     {amount !== null && <PixModal amountCents={amount} onClose={() => {
       setAmount(null);
       triggerRef.current?.focus();
