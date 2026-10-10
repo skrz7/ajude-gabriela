@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { crc16, validatePixPayload } from "../src/lib/pix-payload.ts";
+import { crc16, validatePixPayload, createStaticPixPayload } from "../src/lib/pix-payload.ts";
 
 // Somente fixture sintética. Domínio .invalid não é uma chave real; nenhum pagamento é feito.
 const field = (id, value) => `${id}${String(value.length).padStart(2, "0")}${value}`;
@@ -15,6 +15,22 @@ function fixture(amount = "50.00") {
 
 test("CRC16 corresponde ao vetor de referência CCITT-FALSE", () => {
   assert.equal(crc16("123456789"), "29B1");
+});
+
+test("BR Code estático inclui chave, recebedor e valor exato, sem confirmação de pagamento", () => {
+  for (const cents of [3000, 3055, 5050, 100000]) {
+    const payload = createStaticPixPayload("test@example.invalid", "TESTE SEM PAGAMENTO", "BRASILIA", cents);
+    assert.equal(validatePixPayload(payload, cents, "test@example.invalid"), true);
+    assert.equal(validatePixPayload(payload, cents, "other@example.invalid"), false);
+    assert.equal(validatePixPayload(payload, cents + 1), false);
+    assert.ok(payload.includes("TESTE SEM PAGAMENTO"));
+  }
+  for (const cents of [0, -1, 30.5, NaN, Infinity]) {
+    assert.throws(() => createStaticPixPayload("test@example.invalid", "TESTE", "BRASILIA", cents));
+  }
+  assert.throws(() => createStaticPixPayload("invalid", "TESTE", "BRASILIA", 5000));
+  assert.throws(() => createStaticPixPayload("test@example.invalid", "", "BRASILIA", 5000));
+  assert.throws(() => createStaticPixPayload("test@example.invalid", "TESTE", "", 5000));
 });
 
 test("fixture PIX estruturalmente válida e com valor exato", () => {

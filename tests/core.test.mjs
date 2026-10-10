@@ -112,6 +112,29 @@ test("fluxo aprovado só oferece o site oficial, sem criar pagamento", () => {
   assert.equal("payload" in result, false);
 });
 
+test("PIX estático exige autorização específica e todas as confirmações comuns", () => {
+  const config = approvedConfig();
+  Object.assign(config.pix, { mode: "authorized-static", key: "test@example.invalid",
+    beneficiaryCity: "BRASILIA", staticQrAuthorized: true });
+  for (const field of ["enabled", "ownershipConfirmed", "beneficiaryConfirmed", "campaignUseAuthorized", "platformFlowConfirmed", "staticQrAuthorized"]) {
+    const blocked = structuredClone(config);
+    blocked.pix[field] = false;
+    assert.equal(createContribution(blocked, 5050).status, "unavailable");
+  }
+  for (const field of ["publicationReady", "contentApproved"]) {
+    const blocked = structuredClone(config);
+    blocked[field] = false;
+    assert.equal(createContribution(blocked, 5050).status, "unavailable");
+  }
+  const result = createContribution(config, 5050);
+  assert.equal(result.status, "pix");
+  assert.equal(result.amountCents, 5050);
+  assert.equal(result.beneficiary, config.pix.beneficiaryName);
+  assert.equal("paid" in result, false);
+  config.pix.beneficiaryCity = "";
+  assert.equal(createContribution(config, 5050).status, "unavailable");
+});
+
 test("URL oficial rejeita outro beneficiário, credenciais, query e domínios falsos", () => {
   for (const url of ["https://www.vakinha.com.br.evil.test/6384186", "http://www.vakinha.com.br/6384186", "https://evil.test/6384186", "https://user@www.vakinha.com.br/6384186", "https://www.vakinha.com.br/123", "https://www.vakinha.com.br/6384186?amount=50", "https://www.vakinha.com.br/6384186#other", "https://www.vakinha.com.br:8443/6384186", "invalid"]) {
     assert.equal(approvedCheckoutUrl(url, campaign.pix.key), null);

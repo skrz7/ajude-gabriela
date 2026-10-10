@@ -1,7 +1,33 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { createStaticPixPayload } from "../../src/lib/pix-payload";
 
 test.beforeEach(async ({ page }) => { await page.goto("/"); });
+
+test("PIX autorizado exibe recebedor e QR do valor exato sem alegar pagamento", async ({ page }) => {
+  // Resposta sintética com domínio inválido: não libera a API nem usa chave real.
+  const payload = createStaticPixPayload("test@example.invalid", "TESTE SEM PAGAMENTO", "BRASILIA", 3055);
+  await page.route("**/api/contributions", async (route) => {
+    expect(route.request().postDataJSON().amountCents).toBe(3055);
+    await route.fulfill({ json: { status: "pix", amountCents: 3055, payload, beneficiary: "TESTE SEM PAGAMENTO" } });
+  });
+  await page.getByLabel("Outro valor — você decide").fill("30,55");
+  await page.getByRole("button", { name: "Apoiar com este valor" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("TESTE SEM PAGAMENTO");
+  await expect(dialog.getByRole("textbox", { name: "Código PIX Copia e Cola" })).toHaveValue(payload);
+  await expect(dialog.getByRole("img", { name: "QR Code PIX da contribuição" })).toBeVisible();
+  await expect(dialog).toContainText("não confirma o pagamento");
+});
+
+test("resposta com valor diferente da seleção não libera QR", async ({ page }) => {
+  await page.route("**/api/contributions", (route) => route.fulfill({ json: {
+    status: "pix", amountCents: 5000, payload: "INVALIDO", beneficiary: "TESTE SEM PAGAMENTO",
+  } }));
+  await page.getByRole("button", { name: "Apoiar com este valor" }).click();
+  await expect(page.getByRole("heading", { name: "Não foi possível continuar" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copiar código Pix" })).toHaveCount(0);
+});
 
 test("layout cabe no viewport e exibe arrecadação informada e saldo calculado", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Uma chance de devolver o mundo à Gabriela");
@@ -37,7 +63,7 @@ test("campo personalizado aceita centavos e rejeita valores fora dos limites", a
   for (const value of ["", "29,99", "1000,01", "-30", "1e3", "30,999", "texto"]) {
     await input.fill(value);
     await page.getByRole("button", { name: "Apoiar com este valor" }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.locator("#erro-valor")).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   }
   for (const value of ["30", "30,50", "1000"]) {
@@ -71,6 +97,8 @@ test("erros de rede têm mensagem e permitem fechar", async ({ page }) => {
 });
 
 test("API bloqueia cobrança e valida valores sem expor a chave", async ({ request }) => {
+  const foreign = await request.post("/api/contributions", { headers: { origin: "https://example.invalid" }, data: { amountCents: 5000 } });
+  expect(foreign.status()).toBe(403);
   const invalid = await request.post("/api/contributions", { data: { amountCents: 2999 } });
   expect(invalid.status()).toBe(400);
   const blocked = await request.post("/api/contributions", { data: { amountCents: 5000 } });

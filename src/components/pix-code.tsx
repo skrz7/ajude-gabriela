@@ -6,7 +6,7 @@ import QRCode from "qrcode";
 import { copyPixCode } from "@/lib/clipboard";
 import { validatePixPayload } from "@/lib/pix-payload";
 
-/** Componente preparado para uma cobrança oficial futura. Não é usado pelo checkout atual. */
+/** Exibe somente payload validado pelo servidor; copiar não comprova pagamento. */
 export function PixCode({ officialPayload, amountCents }: { officialPayload: string; amountCents: number }) {
   const [qr, setQr] = useState<{ payload: string; url: string } | null>(null);
   const [notice, setNotice] = useState<{ payload: string; message: string } | null>(null);

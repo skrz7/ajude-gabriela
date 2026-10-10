@@ -37,8 +37,10 @@ export interface CampaignConfig {
     confirmationReference: string;
     beneficiaryName: string;
     officialCampaignUrl: string;
-    // A chave Vakinha usa o fluxo oficial. Não gera cobranças independentes.
-    mode: "official-checkout";
+    // QR estático exige autorização específica, além das confirmações comuns.
+    mode: "official-checkout" | "authorized-static";
+    staticQrAuthorized: boolean;
+    beneficiaryCity: string;
   };
   comments: AuthorizedComment[];
 }
@@ -122,6 +124,8 @@ export const campaign: CampaignConfig = {
     beneficiaryName: "",
     officialCampaignUrl: "",
     mode: "official-checkout",
+    staticQrAuthorized: false,
+    beneficiaryCity: "",
   },
   comments: [],
 };

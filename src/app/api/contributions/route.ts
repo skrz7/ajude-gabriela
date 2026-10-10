@@ -4,7 +4,11 @@ import { createContribution } from "@/lib/payment";
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) {
+  // Next pode reconstruir request.url com localhost apesar de Host ser 127.0.0.1.
+  const requestUrl = new URL(request.url);
+  const host = request.headers.get("host");
+  const publicOrigin = host ? `${requestUrl.protocol}//${host}` : requestUrl.origin;
+  if (origin && origin !== publicOrigin) {
     return NextResponse.json({ status: "error", message: "Origem inválida." }, { status: 403 });
   }
   try {
