@@ -109,8 +109,8 @@ export const campaign: CampaignConfig = {
   },
   contribution: {
     suggestedCents: [3000, 5000, 7500, 10000, 15000, 25000, 50000, 70000],
-    minCents: 3000,
-    maxCents: 100000,
+    minCents: 2500,
+    maxCents: 5_000_000,
     defaultCents: 4500,
   },
   pix: {

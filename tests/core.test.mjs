@@ -8,22 +8,22 @@ import { copyPixCode } from "../src/lib/clipboard.ts";
 import { validatePixPayload } from "../src/lib/pix-payload.ts";
 
 test("valores sugeridos e limites são válidos", () => {
-  for (const amount of [...campaign.contribution.suggestedCents, 3000, 100000, 3015]) {
-    assert.equal(validateAmount(amount, 3000, 100000), null);
+  for (const amount of [...campaign.contribution.suggestedCents, 2500, 5_000_000, 3015]) {
+    assert.equal(validateAmount(amount, campaign.contribution.minCents, campaign.contribution.maxCents), null);
   }
 });
 
 test("valores inválidos não são arredondados nem aceitos", () => {
-  for (const amount of [null, undefined, "3000", NaN, Infinity, -1, 0, 2999, 100001, 3010.5]) {
-    assert.ok(validateAmount(amount, 3000, 100000));
+  for (const amount of [null, undefined, "3000", NaN, Infinity, -1, 0, 2499, 5_000_001, 3010.5]) {
+    assert.ok(validateAmount(amount, campaign.contribution.minCents, campaign.contribution.maxCents));
   }
 });
 
 test("campo personalizado aceita reais e centavos com vírgula ou ponto", () => {
-  for (const [input, expected] of [["30", 3000], ["30,50", 3050], ["30.5", 3050], ["1000,00", 100000], [" 75 ", 7500]]) {
+  for (const [input, expected] of [["25", 2500], ["50000", 5_000_000], ["50000,01", 5_000_001], ["30", 3000], ["30,50", 3050], ["30.5", 3050], ["1000,00", 100000], [" 75 ", 7500]]) {
     assert.equal(parseAmount(input), expected);
   }
-  for (const input of ["", "abc", "-30", "+30", "1e3", "30,999", "1.000,00", "30 50", "10000", "30.", "<script>"]) {
+  for (const input of ["", "abc", "-30", "+30", "1e3", "30,999", "1.000,00", "30 50", "100000", "30.", "<script>"]) {
     assert.equal(parseAmount(input), null);
   }
   assert.match(formatMoney(3050), /30,50/);
@@ -52,7 +52,7 @@ test("arrecadação informada calcula porcentagem e saldo em centavos", () => {
 
 test("campanha autorizada gera código para a chave informada sem alterar arrecadação", () => {
   const raised = campaign.fundraising.confirmed.raisedCents;
-  for (const cents of [...campaign.contribution.suggestedCents, 3055, 100000]) {
+  for (const cents of [...campaign.contribution.suggestedCents, 2500, 3055, 5_000_000]) {
     const result = createContribution(campaign, cents);
     assert.equal(result.status, "pix");
     assert.equal(result.beneficiary, "VAKINHA");
@@ -85,7 +85,8 @@ test("desabilitar PIX bloqueia todos os valores sem expor o código", () => {
     assert.equal("key" in result, false);
     assert.equal("payload" in result, false);
   }
-  assert.equal(createContribution(campaign, 2999).status, "error");
+  assert.equal(createContribution(campaign, 2499).status, "error");
+  assert.equal(createContribution(campaign, 5_000_001).status, "error");
 });
 
 function approvedConfig() {

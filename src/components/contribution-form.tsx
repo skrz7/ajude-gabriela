@@ -39,11 +39,10 @@ export function ContributionForm({ config }: { config: CampaignConfig["contribut
           <span className="prefixo-moeda" aria-hidden="true">R$</span>
           <input ref={inputRef} inputMode="decimal" type="text" id="campo-quantia"
             autoComplete="off" maxLength={12} value={value}
-            aria-describedby={error ? "limites-valor erro-valor" : "limites-valor"}
+            aria-describedby={error ? "erro-valor" : undefined}
             aria-invalid={Boolean(error)}
             onChange={(event) => { setValue(event.target.value); setError(null); }} />
         </div>
-        <p className="hint-minimo" id="limites-valor">Mínimo {formatMoney(config.minCents).replace(",00", "")} · máximo {formatMoney(config.maxCents).replace(",00", "")}</p>
         {error && <p id="erro-valor" className="erro-formulario" role="alert">{error}</p>}
         <button className="botao-livre-cta" type="submit">Apoiar com este valor<span aria-hidden="true">→</span></button>
       </div>

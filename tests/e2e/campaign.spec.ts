@@ -63,16 +63,24 @@ test("todos os valores geram PIX real da campanha com valor selecionado", async 
 
 test("campo personalizado aceita centavos e rejeita valores fora dos limites", async ({ page }) => {
   const input = page.getByLabel("Outro valor — você decide");
-  for (const value of ["", "29,99", "1000,01", "-30", "1e3", "30,999", "texto"]) {
+  await expect(page.locator("#limites-valor")).toHaveCount(0);
+  await input.fill("24,99");
+  await expect(page.locator("#erro-valor")).toHaveCount(0);
+  await page.getByRole("button", { name: "Apoiar com este valor" }).click();
+  await expect(page.locator("#erro-valor")).toHaveText("A contribuição mínima é de R$ 25,00.");
+  for (const value of ["", "24,99", "50000,01", "-30", "1e3", "30,999", "texto"]) {
     await input.fill(value);
     await page.getByRole("button", { name: "Apoiar com este valor" }).click();
     await expect(page.locator("#erro-valor")).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   }
-  for (const value of ["30", "30,50", "1000"]) {
+  for (const value of ["25", "30,50", "1000,01", "50000"]) {
     await input.fill(value);
     await page.getByRole("button", { name: "Apoiar com este valor" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
+    const code = page.getByRole("textbox", { name: "Código PIX Copia e Cola" });
+    await expect(code).toBeVisible();
+    expect(validatePixPayload(await code.inputValue(), Math.round(Number(value.replace(",", ".")) * 100), "6384186@vakinha.com.br")).toBe(true);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
   }
@@ -102,8 +110,10 @@ test("erros de rede têm mensagem e permitem fechar", async ({ page }) => {
 test("API valida origem e valor e gera código sem confirmar pagamento", async ({ request }) => {
   const foreign = await request.post("/api/contributions", { headers: { origin: "https://example.invalid" }, data: { amountCents: 5000 } });
   expect(foreign.status()).toBe(403);
-  const invalid = await request.post("/api/contributions", { data: { amountCents: 2999 } });
+  const invalid = await request.post("/api/contributions", { data: { amountCents: 2499 } });
   expect(invalid.status()).toBe(400);
+  const excessive = await request.post("/api/contributions", { data: { amountCents: 5_000_001 } });
+  expect(excessive.status()).toBe(400);
   const generated = await request.post("/api/contributions", { data: { amountCents: 5055 } });
   expect(generated.status()).toBe(200);
   const payment = await generated.json();
